@@ -16,7 +16,7 @@ from time import strftime
 from networktables import NetworkTables
 from networktables.util import ntproperty
 import logging
-
+#for logging values to networktables
 # Pixy2 Python SWIG get blocks example #
 
 
@@ -28,12 +28,12 @@ print("Pixy2 init done")
 pixy.change_prog("color_connected_components");
 print("Pixy2 connected components done")
 
-
+#The following set of parameters summarize the overall location of the block detected (note) within the field of view.
 class Blocks(Structure):
-    _fields_ = [("m_signature", c_uint),
-                ("m_x", c_uint),
+    _fields_ = [("m_signature", c_uint), 
+                ("m_x", c_uint), 
                 ("m_y", c_uint),
-                ("m_width", c_uint),
+                ("m_width", c_uint), 
                 ("m_height", c_uint),
                 ("m_angle", c_uint),
                 ("m_index", c_uint),
@@ -55,39 +55,29 @@ class pixy2FovIdealNoteSz():
         self.i_width = i_width
         self.i_height = i_height
 
-
+######## BEGIN: adjustable parameters for filtering blocks ########
 # setting for 3 ideal note sizes(width & height)
 pixy2_i_note_sz = []
 
-######## BEGIN: adjustable parameters for filtering blocks ########
-
-
-# this data is for camera at height 24 inches, and angle of 30 degrees from vertical
-# and horizontal FoV 60 degrees & veritical FoV of 40 degrees
+# this data is for camera at height 20 inches, mounted at an angle of 30 degrees vertically
+# horizontal FoV is 60 degrees & veritical FoV is 40 degrees
 
 # closest to pixy2 camera
-# pixy2_i_note_sz.append(pixy2FovIdealNoteSz(160, 137))
-# pixy2_i_note_sz.append(pixy2FovIdealNoteSz(130, 125))
-# pixy2_i_note_sz.append(pixy2FovIdealNoteSz(110, 70))
 pixy2_i_note_sz.append(pixy2FovIdealNoteSz(110, 50))
 # in middle of Pixy2's FOV
-# pixy2_i_note_sz.append(pixy2FovIdealNoteSz(160, 137))
-# pixy2_i_note_sz.append(pixy2FovIdealNoteSz(110, 70))
 pixy2_i_note_sz.append(pixy2FovIdealNoteSz(110, 50))
 # furthest in Pixy2's FOV
-# pixy2_i_note_sz.append(pixy2FovIdealNoteSz(160, 137))
-# pixy2_i_note_sz.append(pixy2FovIdealNoteSz(110, 70))
 pixy2_i_note_sz.append(pixy2FovIdealNoteSz(110, 50))
 
 # detected note size % of ideal note size (reliable if within +- R %)
-note_w_R_percent = 40.0  # 40 % on width
+note_w_R_percent = 30.0  # 30 % on width
 note_h_R_percent = 50.0  # 50 % on height  #not being used
 
-# max allowed absolute angle of a block (degrees)
+# max allowed absolute angle of a block (degrees). Can be at most 30 degrees or -30 degrees.
 max_angle_filter = 30
 
 # pixy get block interval
-get_blk_interval = (10 / 1000)  # sleep for 10 ms before calling pixy again
+get_blk_interval = (10 / 1000)  # sleep for 10 ms before calling pixy and detecting objects again
 
 
 # to disable logging, see the log code section
@@ -104,7 +94,7 @@ def note_get_pixy2_fov_cell(x, y):
     else:
         return 0
 
-
+#Output when a complete block (note) is not detetcted
 def block_is_match_w_whole_note(x, y, width, height):
     is_whole_note = False
     is_note_too_big = False
@@ -114,7 +104,7 @@ def block_is_match_w_whole_note(x, y, width, height):
 
     pixy2NtLog.debug('check BLOCK match: X=%3d Y=%3d WIDTH=%3d HEIGHT=%3d cell=%d]' % (x, y, width, height, note_cell))
 
-    # check for ideal match: check only width; height is very erratic so don't check
+    # check for ideal block match for note: check only width; height is very erratic so don't check
     if ((width > (pixy2_i_note_sz[note_cell].i_width * (1 - note_w_R_percent / 100))) and \
             (width < pixy2_i_note_sz[note_cell].i_width * (1 + note_w_R_percent / 100))):
         is_whole_note = True
@@ -246,7 +236,7 @@ def my_blocks_filtered(arg_count, arg_blocks):
         else:
             pixy2NtLog.warning('detected block %d too big; discard' % (i))
 
-    # if whole note is already detected, then ignore the fragments
+    # if whole note is already detected, then ignore the fragments in the field of view
     if (w_blk_count == 0):
         # now walk through fragments, check if parts of a note and coalesce
         f_to_w_blk_count, f_to_w_blocks = block_coalesce_fragments(f_blk_count, block_frags)
@@ -317,7 +307,7 @@ class SomeClient(object):
     timeStamp = ntproperty("/Pixy2/TimeStamp", "0")
 
 
-c = SomeClient()
+nt_client = SomeClient()
 
 # auto calibrate pixy2 to find ideal note dimensions
 # Note: during first few seconds hold the camera steady with only a note at the center of camera Fov
@@ -331,7 +321,7 @@ i = 0
 while True:
 
     # equivalent to wpilib.SmartDashboard.putNumber('dsTime', i)
-    c.dsTime = i
+    nt_client.dsTime = i
     time.sleep(get_blk_interval)  # sleep for X ms before calling pixy again
     i += 1
     my_datetime = datetime.today()
@@ -360,8 +350,8 @@ while True:
 
     else:
         # pixy2NtLog.debug('no raw blocks found')
-        c.timeStamp = str(my_datetime)
-        c.blkValid = False
+        nt_client.timeStamp = str(my_datetime)
+        nt_client.blkValid = False
 
         # get next set of blocks from pixy
         continue
@@ -387,7 +377,7 @@ while True:
         pixy2NtLog.debug('nt_frame [%3d]:' % (nt_frame))
 
         for index in range(0, count):
-            # calculate block angle
+            # calculate block angle from center of FoV
 
             if blocks[index].m_y <= 208:
                 # blkAngle = math.degrees(math.atan((158.0 - blocks[index].m_x)/(208.0 - blocks[index].m_y)))
@@ -403,20 +393,20 @@ while True:
                 continue
 
             # setting networktable block parameters
-            c.blkSignature = blocks[index].m_signature
-            c.blkX = blocks[index].m_x
-            c.blkY = blocks[index].m_y
-            c.blkWidth = blocks[index].m_width
-            c.blkHeight = blocks[index].m_height
-            c.blkAge = blocks[index].m_age
-            c.blkAngle = blkAngle
-            c.blkValid = True
-            c.timeStamp = str(my_datetime)
+            nt_client.blkSignature = blocks[index].m_signature
+            nt_client.blkX = blocks[index].m_x
+            nt_client.blkY = blocks[index].m_y
+            nt_client.blkWidth = blocks[index].m_width
+            nt_client.blkHeight = blocks[index].m_height
+            nt_client.blkAge = blocks[index].m_age
+            nt_client.blkAngle = blkAngle
+            nt_client.blkValid = True
+            nt_client.timeStamp = str(my_datetime)
 
             pixy2NtLog.info(
                 '[NW Table BLOCK[%d]: SIG=%d X=%3d Y=%3d WIDTH=%3d HEIGHT=%3d AGE=%3d Angle=%3d degrees TimeStamp=%s]' % (
                 index, blocks[index].m_signature, blocks[index].m_x, blocks[index].m_y, blocks[index].m_width,
-                blocks[index].m_height, blocks[index].m_age, c.blkAngle, c.timeStamp))
+                blocks[index].m_height, blocks[index].m_age, nt_client.blkAngle, nt_client.timeStamp))
             # putting into networktables
 
             # sending only one block
@@ -424,5 +414,5 @@ while True:
 
     else:
         # print('no filtered blocks found')
-        c.blkValid = False
-        c.timeStamp = str(my_datetime)
+        nt_client.blkValid = False
+        nt_client.timeStamp = str(my_datetime)

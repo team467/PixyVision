@@ -94,7 +94,7 @@ def note_get_pixy2_fov_cell(x, y):
     else:
         return 0
 
-#Output when a complete block (note) is not detetcted
+#Checks for complete block (whole note) match
 def block_is_match_w_whole_note(x, y, width, height):
     is_whole_note = False
     is_note_too_big = False
@@ -306,7 +306,7 @@ class SomeClient(object):
     blkValid = ntproperty("/Pixy2/Valid", False)
     timeStamp = ntproperty("/Pixy2/TimeStamp", "0")
 
-
+#Initializing networktable client
 nt_client = SomeClient()
 
 # auto calibrate pixy2 to find ideal note dimensions
@@ -333,11 +333,9 @@ while True:
     # Pixycam get_block data: increment get block call count
     get_blk_frame = get_blk_frame + 1
 
+    # get detected blocks from pixycam
     raw_count = pixy.ccc_get_blocks(10, raw_blocks)
-    # temppppppp
-    #  raw_count, raw_blocks = temp_pixy_get_dummy_blocks(10, get_blk_frame)
-
-    # new change
+    
     if raw_count > 0:
         pixy2NtLog.info('\n')
         pixy2NtLog.debug('get_blk_frame [%3d]:' % (get_blk_frame))
